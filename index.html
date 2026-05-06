@@ -1,0 +1,1626 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MindMap Studio</title>
+  <style>
+    :root {
+      --bg-app: #eef2f7;
+      --bg-sidebar: rgba(255, 255, 255, 0.92);
+      --bg-topbar: rgba(255, 255, 255, 0.88);
+      --bg-canvas: #eceff4;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border-color: #dbe3ef;
+      --input-bg: white;
+      --btn-bg: white;
+      --btn-text: #334155;
+      --btn-border: #cad5e4;
+      --doc-card-bg: white;
+      --doc-card-hover: #f8fbff;
+      --shadow-color: rgba(15, 23, 42, 0.06);
+    }
+
+    [data-theme="dark"] {
+      --bg-app: #0f172a;
+      --bg-sidebar: rgba(30, 41, 59, 0.92);
+      --bg-topbar: rgba(30, 41, 59, 0.88);
+      --bg-canvas: #0b1120;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --border-color: #334155;
+      --input-bg: #1e293b;
+      --btn-bg: #1e293b;
+      --btn-text: #e2e8f0;
+      --btn-border: #475569;
+      --doc-card-bg: #1e293b;
+      --doc-card-hover: #334155;
+      --shadow-color: rgba(0, 0, 0, 0.3);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; color: var(--text-main); }
+    body {
+      background: var(--bg-app);
+      overflow: hidden;
+      transition: background .3s ease, color .3s ease;
+    }
+    .app { display: flex; height: 100vh; width: 100%; }
+    .sidebar, .inspector {
+      width: 320px;
+      background: var(--bg-sidebar);
+      backdrop-filter: blur(12px);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      z-index: 20;
+      transition: background .3s ease, border-color .3s ease;
+    }
+    .inspector {
+      width: 340px;
+      border-right: 0;
+      border-left: 1px solid var(--border-color);
+    }
+    .sidebar.hidden, .inspector.hidden { display: none; }
+    .panel-head {
+      padding: 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .panel-body { padding: 16px; overflow: auto; flex: 1; }
+    .tiny-label {
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .panel-title {
+      font-size: 22px;
+      font-weight: 800;
+    }
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .topbar {
+      background: var(--bg-topbar);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 14px 16px;
+      z-index: 15;
+      transition: background .3s ease, border-color .3s ease;
+    }
+    .topbar-row {
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .left-tools, .right-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    input, textarea, button { font: inherit; }
+    .title-input, .search-input, .field-input, .field-textarea, .node-input {
+      border: 1px solid var(--btn-border);
+      border-radius: 14px;
+      background: var(--input-bg);
+      color: var(--text-main);
+      outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease, background .3s ease, color .3s ease;
+    }
+    .title-input:focus, .search-input:focus, .field-input:focus, .field-textarea:focus, .node-input:focus {
+      border-color: #5b74ff;
+      box-shadow: 0 0 0 2px rgba(91,116,255,.12);
+    }
+    .title-input { padding: 12px 14px; min-width: 280px; font-weight: 800; font-size: 16px; }
+    .search-input, .field-input { width: 100%; padding: 12px 14px; }
+    .field-textarea { width: 100%; min-height: 120px; resize: vertical; padding: 12px 14px; }
+    .btn {
+      border: 1px solid var(--btn-border);
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      border-radius: 14px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 700;
+      transition: background .15s ease, border-color .15s ease, transform .08s ease, color .3s ease;
+    }
+    .btn:hover { background: var(--doc-card-hover); border-color: #8ca0ff; }
+    .btn:active { transform: translateY(1px); }
+    .btn.icon { padding: 10px 12px; }
+    .btn.danger { border-color: #fecdd3; color: #e11d48; }
+    .btn.danger:hover { background: #fff1f2; }
+    .status-pill {
+      background: #eef4ff;
+      color: #3155ff;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .doc-card {
+      width: 100%;
+      border: 1px solid var(--border-color);
+      background: var(--doc-card-bg);
+      border-radius: 22px;
+      padding: 16px;
+      text-align: left;
+      cursor: pointer;
+      transition: .15s ease;
+      margin-bottom: 12px;
+      color: var(--text-main);
+    }
+    .doc-card:hover { background: var(--doc-card-hover); border-color: #b9c8ff; }
+    .doc-card.active {
+      background: #0f172a;
+      color: white;
+      border-color: #0f172a;
+      box-shadow: 0 10px 30px rgba(15,23,42,.12);
+    }
+    [data-theme="dark"] .doc-card.active {
+      background: #3155ff;
+      border-color: #3155ff;
+      box-shadow: 0 10px 30px rgba(0,0,0,.4);
+    }
+    .doc-card-title { font-weight: 800; margin-bottom: 8px; }
+    .doc-card-date { font-size: 12px; color: var(--text-muted); }
+    .doc-card.active .doc-card-date { color: #cbd5e1; }
+    .hint-box {
+      border: 1px solid var(--border-color);
+      background: var(--doc-card-hover);
+      border-radius: 24px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .hint-title { font-size: 14px; font-weight: 800; margin-bottom: 8px; }
+    .hint-line { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+    .field-group { margin-bottom: 18px; }
+    .field-label { font-size: 14px; font-weight: 800; margin-bottom: 8px; display: block; }
+    .color-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .color-btn {
+      height: 42px;
+      border-radius: 14px;
+      border: 1px solid var(--btn-border);
+      cursor: pointer;
+    }
+    .color-btn.active { outline: 2px solid rgba(91,116,255,.16); border-color: #3155ff; }
+    .outline-box {
+      border: 1px solid var(--border-color);
+      background: var(--doc-card-hover);
+      border-radius: 22px;
+      padding: 14px;
+      margin-top: 8px;
+    }
+    .outline-title { font-size: 14px; font-weight: 800; margin-bottom: 10px; }
+    .outline-item {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 0;
+      background: transparent;
+      border-radius: 12px;
+      padding: 8px 10px;
+      color: var(--text-muted);
+      cursor: pointer;
+      text-align: left;
+    }
+    .outline-item:hover { background: var(--border-color); }
+    .outline-item.active { background: var(--border-color); color: var(--text-main); font-weight: 800; }
+    .outline-dot { width: 10px; height: 10px; border-radius: 999px; flex: none; }
+    .empty-box {
+      border: 1px dashed var(--btn-border);
+      background: var(--doc-card-hover);
+      border-radius: 22px;
+      padding: 30px 20px;
+      font-size: 14px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+    .canvas-wrap {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      cursor: grab;
+      background: var(--bg-canvas);
+      transition: background .3s ease;
+    }
+    .canvas-wrap.grabbing { cursor: grabbing; }
+    .viewport {
+      position: absolute;
+      inset: 0;
+      transform-origin: 0 0;
+      will-change: transform;
+    }
+    .scene {
+      position: relative;
+      background-image: radial-gradient(rgba(148,163,184,.28) 0.8px, transparent 0.8px);
+      background-size: 18px 18px;
+    }
+    [data-theme="dark"] .scene {
+      background-image: radial-gradient(rgba(255,255,255,.08) 0.8px, transparent 0.8px);
+    }
+    .link-layer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: visible;
+    }
+    .node {
+      position: absolute;
+      transform-origin: 0 0;
+      user-select: none;
+    }
+    .node-body {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      line-height: 1.35;
+      transition: box-shadow .15s ease, transform .12s ease;
+      text-align: center;
+    }
+    .node.selected .node-body { box-shadow: 0 0 0 2px rgba(91,116,255,.24); }
+    .node:hover .node-body { box-shadow: 0 0 0 3px rgba(173, 216, 230, 0.7); }
+    
+    /* 루트 노드: 검은색 배경 (다크모드에선 더 밝은 색 또는 유지) */
+    .node.root .node-body {
+      background-color: #111827 !important;
+      color: white !important;
+      padding: 18px 24px;
+      border-radius: 18px;
+      font-size: 18px;
+      font-weight: 800;
+      border: none !important;
+      box-shadow: 0 10px 26px rgba(11,15,25,.18);
+    }
+    [data-theme="dark"] .node.root .node-body {
+      background-color: #1e293b !important;
+      box-shadow: 0 10px 26px rgba(0,0,0,.4);
+    }
+    
+    /* 하위 노드: 투명 배경 + 테두리 */
+    .node:not(.root) .node-body {
+      background-color: transparent !important;
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    [data-theme="dark"] .node:not(.root) .node-body {
+      color: #e2e8f0 !important;
+    }
+
+    .node-label {
+      display: block;
+      min-width: 12px;
+    }
+    .node-input {
+      width: 100%;
+      height: 100%;
+      padding: 0;
+      margin: 0;
+      font-weight: inherit;
+      font-size: inherit;
+      color: inherit;
+      background: transparent;
+      border: none;
+      outline: none;
+      text-align: center;
+      display: block;
+      font-family: inherit;
+    }
+    .canvas-tip {
+      position: absolute;
+      right: 18px;
+      bottom: 18px;
+      background: rgba(255,255,255,.94);
+      border: 1px solid #dbe3ef;
+      border-radius: 16px;
+      padding: 12px 14px;
+      font-size: 12px;
+      color: #475569;
+      line-height: 1.5;
+      box-shadow: 0 6px 18px rgba(15,23,42,.06);
+      z-index: 5;
+      pointer-events: none;
+    }
+    .hidden-file { display: none; }
+
+    @media (max-width: 1200px) {
+      .sidebar, .inspector { display: none !important; }
+      .title-input { min-width: 220px; width: 100%; }
+      .topbar-row { align-items: stretch; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside id="sidebar" class="sidebar">
+      <div class="panel-head">
+        <div class="tiny-label">MindMap Studio</div>
+        <div class="panel-title">내 문서</div>
+        <div style="margin-top:14px; display:flex; gap:8px;">
+          <button class="btn" id="newMapBtn">+ 새 문서</button>
+        </div>
+        <div style="margin-top:12px;">
+          <input id="searchInput" class="search-input" placeholder="문서 검색" />
+        </div>
+      </div>
+      <div class="panel-body">
+        <div id="docList"></div>
+        <div class="hint-box">
+          <div class="hint-title">조작 방법</div>
+          <div class="hint-line">Tab · 하위 주제 생성 후 바로 입력</div>
+          <div class="hint-line">Enter · 형제 주제 생성 후 바로 입력</div>
+          <div class="hint-line">Ctrl + 휠 · 확대 / 축소</div>
+          <div class="hint-line">빈 화면 왼쪽 드래그 · 화면 이동</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-row">
+          <div class="left-tools">
+            <button class="btn icon" id="toggleLeftBtn">☰</button>
+            <input id="mapTitleInput" class="title-input" />
+            <button class="btn icon" id="undoBtn" title="되돌리기 (Ctrl+Z)">↶</button>
+            <button class="btn icon" id="redoBtn" title="재실행 (Ctrl+Y)">↷</button>
+            <button class="btn icon" id="themeToggleBtn" title="테마 전환">🌓</button>
+            <span class="status-pill">자동 정렬 기반</span>
+          </div>
+          <div class="right-tools">
+            <button class="btn" id="contactBtn">제휴 문의</button>
+            <button class="btn" id="resetViewBtn">화면 원위치</button>
+            <button class="btn" id="duplicateBtn">복제</button>
+            <button class="btn" id="saveBtn">저장</button>
+            <button class="btn" id="exportBtn">JSON 내보내기</button>
+            <button class="btn" id="importBtn">불러오기</button>
+            <button class="btn icon" id="toggleRightBtn">≡</button>
+            <input id="fileInput" class="hidden-file" type="file" accept="application/json" />
+          </div>
+        </div>
+      </header>
+
+      <section class="canvas-wrap" id="canvasWrap">
+        <div class="viewport" id="viewport">
+          <div class="scene" id="scene"></div>
+        </div>
+        <div class="canvas-tip">
+          클릭: 선택 / 제목 클릭: 바로 수정<br>
+          Ctrl + 휠: 확대축소 / 빈 화면 드래그: 이동
+        </div>
+      </section>
+    </main>
+
+    <aside id="inspector" class="inspector">
+      <div class="panel-head">
+        <div class="tiny-label">Inspector</div>
+        <div class="panel-title">노드 편집</div>
+      </div>
+      <div class="panel-body" id="inspectorBody"></div>
+      <div class="panel-head" style="border-top:1px solid var(--border-color); border-bottom:0;">
+        <button class="btn danger" id="deleteMapBtn" style="width:100%;">현재 문서 삭제</button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- 제휴 문의 모달 -->
+  <div id="contactModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="panel-head">
+        <div class="panel-title">제휴 문의</div>
+        <div class="tiny-label">Formspree 연동</div>
+      </div>
+      <form action="https://formspree.io/f/meevyjzj" method="POST" class="panel-body">
+        <div class="field-group">
+          <label class="field-label">이메일 주소</label>
+          <input type="email" name="email" class="field-input" placeholder="example@email.com" required>
+        </div>
+        <div class="field-group">
+          <label class="field-label">문의 내용</label>
+          <textarea name="message" class="field-textarea" placeholder="문의하실 내용을 입력해주세요." required></textarea>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:20px;">
+          <button type="submit" class="btn" style="flex:1; background:#3155ff; color:white; border:0;">보내기</button>
+          <button type="button" id="closeContactBtn" class="btn" style="flex:1;">닫기</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <style>
+    /* 모달 스타일 추가 */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-content {
+      background: var(--bg-sidebar);
+      width: 100%;
+      max-width: 400px;
+      border-radius: 24px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+  </style>
+
+  <script>
+    const STORAGE_KEY = "mindmap-studio-standalone-v3";
+    const ROOT_ID = "root";
+    const DEPTH_GAP_BASE = 90;
+    const SIBLING_GAP = 24;
+    const TOP_MARGIN = 120;
+    const LEFT_MARGIN = 120;
+    const RIGHT_MARGIN = 260;
+    const BOTTOM_MARGIN = 220;
+    const BRANCH_PALETTE = ["#4f6bff", "#7456ff", "#4d9bff", "#7c5cff", "#5a7bff", "#6a63ff"];
+    const COLORS = ["#111827", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#16a34a", "#0891b2", "#6b7280"];
+
+    const measureCanvas = document.createElement("canvas");
+    const measureCtx = measureCanvas.getContext("2d");
+
+    const state = {
+      workspace: loadWorkspace(),
+      undoStack: [],
+      redoStack: [],
+      selectedNodeId: ROOT_ID,
+      editingNodeId: null,
+      search: "",
+      leftOpen: true,
+      rightOpen: true,
+      panning: null,
+      view: { x: 80, y: 70, scale: 1 },
+      composing: false,
+      lastLayout: null,
+    };
+
+    const el = {
+      sidebar: document.getElementById("sidebar"),
+      inspector: document.getElementById("inspector"),
+      docList: document.getElementById("docList"),
+      inspectorBody: document.getElementById("inspectorBody"),
+      canvasWrap: document.getElementById("canvasWrap"),
+      viewport: document.getElementById("viewport"),
+      scene: document.getElementById("scene"),
+      mapTitleInput: document.getElementById("mapTitleInput"),
+      searchInput: document.getElementById("searchInput"),
+      fileInput: document.getElementById("fileInput"),
+      undoBtn: document.getElementById("undoBtn"),
+      redoBtn: document.getElementById("redoBtn"),
+      newMapBtn: document.getElementById("newMapBtn"),
+      resetViewBtn: document.getElementById("resetViewBtn"),
+      duplicateBtn: document.getElementById("duplicateBtn"),
+      saveBtn: document.getElementById("saveBtn"),
+      exportBtn: document.getElementById("exportBtn"),
+      importBtn: document.getElementById("importBtn"),
+      deleteMapBtn: document.getElementById("deleteMapBtn"),
+      toggleLeftBtn: document.getElementById("toggleLeftBtn"),
+      toggleRightBtn: document.getElementById("toggleRightBtn"),
+      themeToggleBtn: document.getElementById("themeToggleBtn"),
+      contactBtn: document.getElementById("contactBtn"),
+      contactModal: document.getElementById("contactModal"),
+      closeContactBtn: document.getElementById("closeContactBtn"),
+    };
+
+    function initTheme() {
+      const savedTheme = localStorage.getItem("mindmap-theme") || "light";
+      document.body.setAttribute("data-theme", savedTheme);
+    }
+    initTheme();
+
+    function toggleTheme() {
+      const current = document.body.getAttribute("data-theme");
+      const next = current === "dark" ? "light" : "dark";
+      document.body.setAttribute("data-theme", next);
+      localStorage.setItem("mindmap-theme", next);
+      renderScene();
+    }
+    el.themeToggleBtn.addEventListener("click", toggleTheme);
+
+    // 모달 제어
+    el.contactBtn.addEventListener("click", () => el.contactModal.classList.add("active"));
+    el.closeContactBtn.addEventListener("click", () => el.contactModal.classList.remove("active"));
+    el.contactModal.addEventListener("click", (e) => {
+      if (e.target === el.contactModal) el.contactModal.classList.remove("active");
+    });
+
+    let lastSavedMapStr = null;
+    function resetHistory() {
+      state.undoStack = [];
+      state.redoStack = [];
+      lastSavedMapStr = JSON.stringify(activeMap());
+    }
+
+    function uid() {
+      return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+    }
+
+    function createMap(title = "새 마인드맵") {
+      return {
+        id: uid(),
+        title,
+        updatedAt: Date.now(),
+        nodes: [
+          {
+            id: ROOT_ID,
+            label: title,
+            notes: "핵심 주제를 입력하세요.",
+            color: "#111827",
+            collapsed: false,
+          },
+        ],
+        edges: [],
+      };
+    }
+
+    function loadWorkspace() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          const map = createMap();
+          return { activeId: map.id, maps: [map] };
+        }
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.maps) || !parsed.maps.length) {
+          const map = createMap();
+          return { activeId: map.id, maps: [map] };
+        }
+        return parsed;
+      } catch (e) {
+        const map = createMap();
+        return { activeId: map.id, maps: [map] };
+      }
+    }
+
+    function saveWorkspace() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.workspace));
+    }
+
+    function activeMap() {
+      return state.workspace.maps.find(m => m.id === state.workspace.activeId) || state.workspace.maps[0];
+    }
+
+    function nodeMap(map = activeMap()) {
+      return new Map(map.nodes.map(n => [n.id, n]));
+    }
+
+    function buildMaps(map = activeMap()) {
+      const parentMap = new Map();
+      const childrenMap = new Map();
+      map.nodes.forEach(n => childrenMap.set(n.id, []));
+      map.edges.forEach(e => {
+        parentMap.set(e.target, e.source);
+        if (!childrenMap.has(e.source)) childrenMap.set(e.source, []);
+        childrenMap.get(e.source).push(e.target);
+      });
+      return { parentMap, childrenMap };
+    }
+
+    function getDepthMap(map = activeMap()) {
+      const depthMap = new Map();
+      const { childrenMap, parentMap } = buildMaps(map);
+      const roots = map.nodes.filter(n => !parentMap.has(n.id)).map(n => n.id);
+      roots.forEach(r => depthMap.set(r, 0));
+      function walk(id, depth) {
+        (childrenMap.get(id) || []).forEach(childId => {
+          depthMap.set(childId, depth + 1);
+          walk(childId, depth + 1);
+        });
+      }
+      roots.forEach(r => walk(r, 0));
+      return depthMap;
+    }
+
+    function getVisibleIds(map = activeMap()) {
+      const ids = new Set();
+      const byId = nodeMap(map);
+      const { childrenMap, parentMap } = buildMaps(map);
+      const roots = map.nodes.filter(n => !parentMap.has(n.id)).map(n => n.id);
+      function walk(id) {
+        const node = byId.get(id);
+        if (!node || ids.has(id)) return;
+        ids.add(id);
+        if (node.collapsed) return;
+        (childrenMap.get(id) || []).forEach(walk);
+      }
+      roots.forEach(walk);
+      return ids;
+    }
+
+    function getDescendants(id, map = activeMap()) {
+      const { childrenMap } = buildMaps(map);
+      const result = new Set();
+      const stack = [...(childrenMap.get(id) || [])];
+      while (stack.length) {
+        const current = stack.pop();
+        if (result.has(current)) continue;
+        result.add(current);
+        (childrenMap.get(current) || []).forEach(child => stack.push(child));
+      }
+      return result;
+    }
+
+    function getNodeTheme(depth, id) {
+      if (depth === 0) {
+        return {
+          font: '800 18px Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
+          fontSize: 18,
+          lineHeight: 26,
+          maxTextWidth: 320,
+          paddingX: 24,
+          paddingY: 18,
+          minWidth: 160,
+          minHeight: 60,
+        };
+      }
+      return {
+        font: '700 14px Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
+        fontSize: 14,
+        lineHeight: 22,
+        maxTextWidth: Infinity,
+        paddingX: 12,
+        paddingY: 8,
+        minWidth: 40,
+        minHeight: 34,
+      };
+    }
+
+    function splitTextByWidth(text, maxWidth, font) {
+      const safe = String(text || "").trim() || "새 주제";
+      measureCtx.font = font;
+      const chars = Array.from(safe);
+      const lines = [];
+      let current = "";
+      chars.forEach(ch => {
+        const next = current + ch;
+        if (current && measureCtx.measureText(next).width > maxWidth) {
+          lines.push(current);
+          current = ch;
+        } else {
+          current = next;
+        }
+      });
+      if (current) lines.push(current);
+      return lines.length ? lines : [safe];
+    }
+
+    function measureNode(node, depth) {
+      const theme = getNodeTheme(depth, node.id);
+      measureCtx.font = theme.font;
+      const label = node.label || "";
+      
+      const fullWidth = measureCtx.measureText(label).width;
+      
+      let width, height, lines;
+      if (fullWidth <= theme.maxTextWidth) {
+        width = Math.max(theme.minWidth, Math.ceil(fullWidth) + theme.paddingX * 2);
+        height = Math.max(theme.minHeight, theme.lineHeight + theme.paddingY * 2);
+        lines = [label];
+      } else {
+        lines = splitTextByWidth(label, theme.maxTextWidth, theme.font);
+        const textWidth = Math.max(...lines.map(line => Math.ceil(measureCtx.measureText(line).width)));
+        width = Math.max(theme.minWidth, textWidth + theme.paddingX * 2);
+        height = Math.max(theme.minHeight, lines.length * theme.lineHeight + theme.paddingY * 2);
+      }
+      return { width, height, lines, theme };
+    }
+
+    function getBranchRoots(map = activeMap()) {
+      const { childrenMap, parentMap } = buildMaps(map);
+      const branchColorMap = new Map();
+      const roots = map.nodes.filter(n => !parentMap.has(n.id));
+      let colorIdx = 0;
+      roots.forEach(root => {
+        const rootChildren = childrenMap.get(root.id) || [];
+        rootChildren.forEach(id => {
+          branchColorMap.set(id, BRANCH_PALETTE[colorIdx % BRANCH_PALETTE.length]);
+          colorIdx++;
+        });
+      });
+      function findBranchRoot(id) {
+        let current = id;
+        while (parentMap.has(current) && parentMap.has(parentMap.get(current))) {
+          current = parentMap.get(current);
+        }
+        return current;
+      }
+      return { branchColorMap, findBranchRoot };
+    }
+
+    function computeLayout(map = activeMap()) {
+      const visibleIds = getVisibleIds(map);
+      const { childrenMap, parentMap } = buildMaps(map);
+      const depthMap = getDepthMap(map);
+      const measurements = new Map();
+      map.nodes.forEach(node => measurements.set(node.id, measureNode(node, depthMap.get(node.id) || 0)));
+
+      const subtreeCache = new Map();
+      function subtreeHeight(id) {
+        if (subtreeCache.has(id)) return subtreeCache.get(id);
+        const node = map.nodes.find(n => n.id === id);
+        const ownHeight = measurements.get(id).height;
+        const children = node && node.collapsed ? [] : (childrenMap.get(id) || []).filter(childId => visibleIds.has(childId));
+        if (!children.length) {
+          subtreeCache.set(id, ownHeight);
+          return ownHeight;
+        }
+        const totalChildrenHeight = children.map(subtreeHeight).reduce((a, b) => a + b, 0) + SIBLING_GAP * (children.length - 1);
+        const result = Math.max(ownHeight, totalChildrenHeight);
+        subtreeCache.set(id, result);
+        return result;
+      }
+
+      const layoutMap = new Map();
+      function place(id, startX, topY) {
+        const depth = depthMap.get(id) || 0;
+        const own = measurements.get(id);
+        const branchHeight = subtreeHeight(id);
+        const x = startX;
+        const y = topY + branchHeight / 2 - own.height / 2;
+        layoutMap.set(id, { x, y, width: own.width, height: own.height, depth, lines: own.lines, theme: own.theme });
+
+        const node = map.nodes.find(n => n.id === id);
+        const children = node && node.collapsed ? [] : (childrenMap.get(id) || []).filter(childId => visibleIds.has(childId));
+        if (!children.length) return;
+        
+        const childStartX = x + own.width + DEPTH_GAP_BASE + Math.max(0, depth) * 6;
+        let cursor = topY;
+        children.forEach(childId => {
+          const childHeight = subtreeHeight(childId);
+          place(childId, childStartX, cursor);
+          cursor += childHeight + SIBLING_GAP;
+        });
+      }
+
+      const roots = map.nodes.filter(n => !parentMap.has(n.id));
+      roots.forEach(root => {
+        const x = root.id === ROOT_ID ? LEFT_MARGIN : (root.x !== undefined ? root.x : LEFT_MARGIN);
+        const y = root.id === ROOT_ID ? TOP_MARGIN : (root.y !== undefined ? root.y : TOP_MARGIN);
+        place(root.id, x, y);
+      });
+
+      const { branchColorMap, findBranchRoot } = getBranchRoots(map);
+      const edges = map.edges
+        .filter(edge => visibleIds.has(edge.source) && visibleIds.has(edge.target))
+        .map(edge => {
+          const source = layoutMap.get(edge.source);
+          const target = layoutMap.get(edge.target);
+          const branchRoot = findBranchRoot(edge.target);
+          const color = branchColorMap.get(branchRoot) || "#6d67ff";
+          return {
+            id: edge.id,
+            color,
+            x1: source.x + source.width,
+            y1: source.y + source.height / 2,
+            x2: target.x,
+            y2: target.y + target.height / 2,
+          };
+        });
+
+      const bounds = {
+        width: Math.max(...Array.from(layoutMap.values()).map(item => item.x + item.width), 1200) + RIGHT_MARGIN,
+        height: Math.max(...Array.from(layoutMap.values()).map(item => item.y + item.height), 900) + BOTTOM_MARGIN,
+      };
+
+      return {
+        layoutMap,
+        edges,
+        bounds,
+        visibleIds,
+        depthMap,
+        childrenMap,
+        parentMap,
+      };
+    }
+
+    function ensureSelectedNodeExists() {
+      const map = activeMap();
+      if (!map.nodes.some(node => node.id === state.selectedNodeId)) {
+        state.selectedNodeId = ROOT_ID;
+      }
+      if (state.editingNodeId && !map.nodes.some(node => node.id === state.editingNodeId)) {
+        state.editingNodeId = null;
+      }
+    }
+
+    function commitChanges(shouldRender = true, recordHistory = true) {
+      const currentStr = JSON.stringify(activeMap());
+      if (recordHistory && lastSavedMapStr !== null && currentStr !== lastSavedMapStr) {
+         state.undoStack.push(lastSavedMapStr);
+         if (state.undoStack.length > 50) state.undoStack.shift();
+         state.redoStack = [];
+      }
+      lastSavedMapStr = currentStr;
+      activeMap().updatedAt = Date.now();
+      saveWorkspace();
+      if (shouldRender) render();
+    }
+
+    function undo() {
+      if (!state.undoStack.length) return;
+      const currentStr = JSON.stringify(activeMap());
+      state.redoStack.push(currentStr);
+      const prevStr = state.undoStack.pop();
+      const prev = JSON.parse(prevStr);
+      const mapIndex = state.workspace.maps.findIndex(m => m.id === prev.id);
+      if (mapIndex !== -1) {
+         state.workspace.maps[mapIndex] = prev;
+         lastSavedMapStr = prevStr;
+      }
+      activeMap().updatedAt = Date.now();
+      saveWorkspace();
+      render();
+    }
+
+    function redo() {
+      if (!state.redoStack.length) return;
+      const currentStr = JSON.stringify(activeMap());
+      state.undoStack.push(currentStr);
+      const nextStr = state.redoStack.pop();
+      const next = JSON.parse(nextStr);
+      const mapIndex = state.workspace.maps.findIndex(m => m.id === next.id);
+      if (mapIndex !== -1) {
+         state.workspace.maps[mapIndex] = next;
+         lastSavedMapStr = nextStr;
+      }
+      activeMap().updatedAt = Date.now();
+      saveWorkspace();
+      render();
+    }
+
+    function setNodeField(id, patch) {
+      const map = activeMap();
+      const node = map.nodes.find(n => n.id === id);
+      if (!node) return;
+      Object.assign(node, patch);
+      if (id === ROOT_ID && Object.prototype.hasOwnProperty.call(patch, "label")) {
+        map.title = patch.label || "새 마인드맵";
+      }
+    }
+
+    function commitNodeLabel(id, rawValue) {
+      const value = String(rawValue || "").trim();
+      const finalText = id === ROOT_ID ? (value || "새 마인드맵") : (value || "새 주제");
+      
+      const node = activeMap().nodes.find(n => n.id === id);
+      if (node && node.label === finalText) {
+        state.editingNodeId = null;
+        renderScene();
+        return;
+      }
+      
+      setNodeField(id, { label: finalText });
+      state.editingNodeId = null;
+      commitChanges(true);
+    }
+
+    function resetView() {
+      state.view = { x: 80, y: 70, scale: 1 };
+      applyView();
+    }
+
+    function applyView() {
+      el.viewport.style.transform = `translate(${state.view.x}px, ${state.view.y}px) scale(${state.view.scale})`;
+    }
+
+    function formatTime(timestamp) {
+      try {
+        return new Intl.DateTimeFormat("ko-KR", {
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(timestamp);
+      } catch (e) {
+        return "-";
+      }
+    }
+
+    function createNewMap() {
+      const map = createMap("새 마인드맵 " + (state.workspace.maps.length + 1));
+      state.workspace.activeId = map.id;
+      state.workspace.maps.unshift(map);
+      state.selectedNodeId = ROOT_ID;
+      state.editingNodeId = null;
+      resetHistory();
+      saveWorkspace();
+      resetView();
+      render();
+    }
+
+    function duplicateMap() {
+      const copied = JSON.parse(JSON.stringify(activeMap()));
+      copied.id = uid();
+      copied.title = activeMap().title + " 복사본";
+      copied.updatedAt = Date.now();
+      state.workspace.activeId = copied.id;
+      state.workspace.maps.unshift(copied);
+      state.selectedNodeId = ROOT_ID;
+      state.editingNodeId = null;
+      resetHistory();
+      saveWorkspace();
+      render();
+    }
+
+    function deleteCurrentMap() {
+      if (state.workspace.maps.length === 1) {
+        const map = createMap();
+        state.workspace = { activeId: map.id, maps: [map] };
+      } else {
+        state.workspace.maps = state.workspace.maps.filter(map => map.id !== state.workspace.activeId);
+        state.workspace.activeId = state.workspace.maps[0].id;
+      }
+      state.selectedNodeId = ROOT_ID;
+      state.editingNodeId = null;
+      resetHistory();
+      saveWorkspace();
+      resetView();
+      render();
+    }
+
+    function addChildNode(parentId, startEdit = true) {
+      const map = activeMap();
+      const parent = map.nodes.find(node => node.id === parentId);
+      if (!parent) return;
+      parent.collapsed = false;
+      const id = uid();
+      map.nodes.push({
+        id,
+        label: "",
+        notes: "",
+        color: parent.color,
+        collapsed: false,
+      });
+      map.edges.push({ id: `e-${parentId}-${id}`, source: parentId, target: id });
+      state.selectedNodeId = id;
+      state.editingNodeId = startEdit ? id : null;
+      commitChanges(true);
+    }
+
+    function addSiblingNode(id, startEdit = true) {
+      const { parentMap } = buildMaps();
+      const parentId = parentMap.get(id);
+      if (!parentId) return;
+      addChildNode(parentId, startEdit);
+    }
+
+    function deleteNode(id) {
+      if (id === ROOT_ID) return;
+      const map = activeMap();
+      const removeIds = new Set([id, ...getDescendants(id, map)]);
+      map.nodes = map.nodes.filter(node => !removeIds.has(node.id));
+      map.edges = map.edges.filter(edge => !removeIds.has(edge.source) && !removeIds.has(edge.target));
+      state.selectedNodeId = ROOT_ID;
+      state.editingNodeId = null;
+      commitChanges(true);
+    }
+
+    function toggleNode(id) {
+      const node = activeMap().nodes.find(item => item.id === id);
+      if (!node) return;
+      node.collapsed = !node.collapsed;
+      commitChanges(true);
+    }
+
+    function exportActiveMap() {
+      const map = activeMap();
+      const layout = state.lastLayout || computeLayout(map);
+      const exportMap = {
+        ...map,
+        nodes: map.nodes.map(node => {
+          const positioned = layout.layoutMap.get(node.id);
+          return {
+            ...node,
+            x: positioned ? positioned.x : 0,
+            y: positioned ? positioned.y : 0,
+            width: positioned ? positioned.width : undefined,
+            height: positioned ? positioned.height : undefined,
+          };
+        }),
+      };
+      const blob = new Blob([JSON.stringify(exportMap, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = (map.title || "mindmap") + ".json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importMap(file) {
+      const reader = new FileReader();
+      reader.onload = function () {
+        try {
+          const parsed = JSON.parse(reader.result);
+          if (!parsed || !Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) {
+            throw new Error("invalid");
+          }
+          const map = {
+            id: uid(),
+            title: parsed.title || file.name.replace(/\.json$/i, ""),
+            updatedAt: Date.now(),
+            nodes: parsed.nodes.map(node => ({
+              id: node.id,
+              label: node.label || "",
+              notes: node.notes || "",
+              color: node.color || "#111827",
+              collapsed: !!node.collapsed,
+            })),
+            edges: parsed.edges.map(edge => ({ id: edge.id || uid(), source: edge.source, target: edge.target })),
+          };
+          state.workspace.activeId = map.id;
+          state.workspace.maps.unshift(map);
+          state.selectedNodeId = ROOT_ID;
+          state.editingNodeId = null;
+          resetHistory();
+          saveWorkspace();
+          resetView();
+          render();
+        } catch (e) {
+          alert("불러오기에 실패했습니다. JSON 형식을 확인해주세요.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function renderDocList() {
+      const q = state.search.trim().toLowerCase();
+      const list = [...state.workspace.maps]
+        .filter(map => !q || map.title.toLowerCase().includes(q))
+        .sort((a, b) => b.updatedAt - a.updatedAt);
+
+      el.docList.innerHTML = list.map(map => `
+        <button class="doc-card ${map.id === state.workspace.activeId ? "active" : ""}" data-map-id="${map.id}">
+          <div class="doc-card-title">${escapeHtml(map.title)}</div>
+          <div class="doc-card-date">최근 저장 · ${escapeHtml(formatTime(map.updatedAt))}</div>
+        </button>
+      `).join("");
+
+      el.docList.querySelectorAll("[data-map-id]").forEach(button => {
+        button.addEventListener("click", () => {
+          state.workspace.activeId = button.dataset.mapId;
+          state.selectedNodeId = ROOT_ID;
+          state.editingNodeId = null;
+          resetHistory();
+          saveWorkspace();
+          render();
+        });
+      });
+    }
+
+    function renderOutline(id, childrenMap, byId, depth) {
+      const node = byId.get(id);
+      if (!node) return "";
+      const children = childrenMap.get(id) || [];
+      return `
+        <button class="outline-item ${state.selectedNodeId === id ? "active" : ""}" data-outline-id="${id}" style="padding-left:${12 + depth * 14}px;">
+          <span class="outline-dot" style="background:${escapeAttr(node.color || '#111827')};"></span>
+          <span style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(node.label || "새 주제")}</span>
+        </button>
+        ${node.collapsed ? "" : children.map(childId => renderOutline(childId, childrenMap, byId, depth + 1)).join("")}
+      `;
+    }
+
+    function renderInspector() {
+      const map = activeMap();
+      const node = map.nodes.find(item => item.id === state.selectedNodeId);
+      if (!node) {
+        el.inspectorBody.innerHTML = `<div class="empty-box">노드를 선택하면 제목, 메모, 색상을 수정할 수 있습니다.</div>`;
+        return;
+      }
+      const byId = nodeMap(map);
+      const { childrenMap, parentMap } = buildMaps(map);
+      const roots = map.nodes.filter(n => !parentMap.has(n.id)).map(n => n.id);
+      el.inspectorBody.innerHTML = `
+        <div class="field-group">
+          <label class="field-label">제목</label>
+          <input class="field-input" id="nodeTitleInput" value="${escapeAttr(node.label)}" />
+        </div>
+        <div class="field-group">
+          <label class="field-label">메모</label>
+          <textarea class="field-textarea" id="nodeNotesInput">${escapeText(node.notes || "")}</textarea>
+        </div>
+        <div class="field-group">
+          <label class="field-label">색상</label>
+          <div class="color-grid">
+            ${COLORS.map(color => `<button class="color-btn ${node.color === color ? "active" : ""}" data-color="${color}" style="background:${color};"></button>`).join("")}
+          </div>
+        </div>
+        <div class="field-group" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <button class="btn" id="inspectorAddChildBtn">하위 노드</button>
+          <button class="btn" id="inspectorToggleBtn">접기/펼치기</button>
+        </div>
+        <div class="field-group" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <button class="btn" id="inspectorEditBtn">바로 수정</button>
+          ${node.id !== ROOT_ID ? `<button class="btn danger" id="inspectorDeleteBtn">선택 삭제</button>` : `<div></div>`}
+        </div>
+        <div class="outline-box">
+          <div class="outline-title">개요 보기</div>
+          ${roots.map(rootId => renderOutline(rootId, childrenMap, byId, 0)).join("")}
+        </div>
+      `;
+
+      const titleInput = document.getElementById("nodeTitleInput");
+      const notesInput = document.getElementById("nodeNotesInput");
+      titleInput.addEventListener("input", e => {
+        setNodeField(node.id, { label: e.target.value });
+        if (node.id === ROOT_ID) {
+          el.mapTitleInput.value = e.target.value;
+        }
+      });
+      titleInput.addEventListener("blur", () => {
+        commitNodeLabel(node.id, titleInput.value);
+      });
+      titleInput.addEventListener("keydown", e => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          titleInput.blur();
+        }
+      });
+
+      notesInput.addEventListener("input", e => {
+        setNodeField(node.id, { notes: e.target.value });
+      });
+      notesInput.addEventListener("blur", () => commitChanges(true));
+
+      document.querySelectorAll("[data-color]").forEach(button => {
+        button.addEventListener("click", () => {
+          setNodeField(node.id, { color: button.dataset.color });
+          commitChanges(true);
+        });
+      });
+      document.getElementById("inspectorAddChildBtn").addEventListener("click", () => addChildNode(node.id, true));
+      document.getElementById("inspectorToggleBtn").addEventListener("click", () => toggleNode(node.id));
+      document.getElementById("inspectorEditBtn").addEventListener("click", () => startInlineEdit(node.id));
+      const deleteBtn = document.getElementById("inspectorDeleteBtn");
+      if (deleteBtn) deleteBtn.addEventListener("click", () => deleteNode(node.id));
+      document.querySelectorAll("[data-outline-id]").forEach(button => {
+        button.addEventListener("click", () => {
+          state.selectedNodeId = button.dataset.outlineId;
+          state.editingNodeId = null;
+          render();
+        });
+      });
+    }
+
+    function renderScene() {
+      const map = activeMap();
+      const layout = computeLayout(map);
+      state.lastLayout = layout;
+      el.scene.style.width = layout.bounds.width + "px";
+      el.scene.style.height = layout.bounds.height + "px";
+
+      const edgesHtml = layout.edges.map(edge => {
+        const dx = Math.max(36, (edge.x2 - edge.x1) * 0.45);
+        const d = `M ${edge.x1} ${edge.y1} C ${edge.x1 + dx} ${edge.y1}, ${edge.x2 - dx} ${edge.y2}, ${edge.x2} ${edge.y2}`;
+        return `<path d="${d}" fill="none" stroke="${edge.color}" stroke-width="2.4" stroke-linecap="round" data-edge-id="${edge.id}"></path>`;
+      }).join("");
+
+      const nodesHtml = map.nodes
+        .filter(node => layout.visibleIds.has(node.id))
+        .map(node => {
+          const meta = layout.layoutMap.get(node.id);
+          const depth = meta.depth;
+          const isEditing = state.editingNodeId === node.id;
+          const selected = state.selectedNodeId === node.id;
+          
+          const isRoot = depth === 0;
+          const color = node.color || (isRoot ? '#111827' : '#4f6bff');
+          const borderStyle = isRoot ? 'none' : `2px solid ${color}`;
+          const textColor = isRoot ? 'white' : '#0f172a';
+
+          return `
+            <div class="node ${selected ? 'selected' : ''} ${isEditing ? 'editing' : ''} ${isRoot ? 'root' : ''}" data-node-id="${node.id}" style="left:${meta.x}px; top:${meta.y}px; width:${meta.width}px; height:${meta.height}px; ${state.dragData && state.dragData.id === node.id ? 'opacity: 0.5; pointer-events: none; z-index: 999;' : ''}">
+              <div class="node-body" data-edit-trigger="${node.id}" style="border: ${borderStyle}; color: ${textColor};">
+                ${isEditing
+                  ? `<input class="node-input" data-inline-input="${node.id}" value="${escapeAttr(node.label || '')}" placeholder="내용 입력" />`
+                  : `<span class="node-label">${escapeHtml(node.label || '주제 입력')}</span>`}
+              </div>
+            </div>
+          `;
+        }).join("");
+
+      el.scene.innerHTML = `
+        <svg class="link-layer" viewBox="0 0 ${layout.bounds.width} ${layout.bounds.height}">${edgesHtml}</svg>
+        ${nodesHtml}
+      `;
+
+      el.scene.querySelectorAll("[data-node-id]").forEach(nodeEl => {
+        const nodeId = nodeEl.dataset.nodeId;
+        nodeEl.addEventListener("click", e => {
+          e.stopPropagation();
+          state.selectedNodeId = nodeId;
+          renderInspector();
+          el.scene.querySelectorAll(".node").forEach(item => item.classList.toggle("selected", item.dataset.nodeId === nodeId));
+        });
+      });
+
+      el.scene.querySelectorAll("[data-edit-trigger]").forEach(trigger => {
+        trigger.addEventListener("click", e => {
+          e.stopPropagation();
+          const id = trigger.dataset.editTrigger;
+          if (state.editingNodeId !== id) startInlineEdit(id);
+        });
+      });
+
+      const input = el.scene.querySelector(`[data-inline-input="${state.editingNodeId}"]`);
+      if (input) {
+        input.addEventListener("click", e => e.stopPropagation());
+        
+        input.addEventListener("compositionstart", () => { state.composing = true; });
+        input.addEventListener("compositionend", () => { 
+          state.composing = false;
+          updateLiveLayout(); 
+        });
+
+        const updateLiveLayout = () => {
+          const node = activeMap().nodes.find(n => n.id === state.editingNodeId);
+          if (!node) return;
+          node.label = input.value;
+          
+          const depthMap = getDepthMap();
+          const depth = depthMap.get(node.id) || 0;
+          const measurement = measureNode(node, depth);
+          
+          const nodeEl = el.scene.querySelector(`[data-node-id="${node.id}"]`);
+          if (nodeEl) {
+            nodeEl.style.width = measurement.width + "px";
+            nodeEl.style.height = measurement.height + "px";
+          }
+
+          const currentMap = activeMap();
+          const liveLayout = computeLayout(currentMap);
+          
+          liveLayout.edges.forEach(edge => {
+            const path = el.scene.querySelector(`path[data-edge-id="${edge.id}"]`);
+            if (path) {
+              const dx = Math.max(36, (edge.x2 - edge.x1) * 0.45);
+              const d = `M ${edge.x1} ${edge.y1} C ${edge.x1 + dx} ${edge.y1}, ${edge.x2 - dx} ${edge.y2}, ${edge.x2} ${edge.y2}`;
+              path.setAttribute("d", d);
+            }
+          });
+        };
+
+        input.addEventListener("input", () => {
+          if (!state.composing) updateLiveLayout();
+        });
+
+        input.addEventListener("blur", () => {
+          commitNodeLabel(state.editingNodeId, input.value);
+        });
+
+        input.addEventListener("keydown", e => {
+          e.stopPropagation();
+          if (state.composing) return;
+          if (e.key === "Enter") {
+            e.preventDefault();
+            input.blur();
+          }
+          if (e.key === "Tab") {
+            e.preventDefault();
+            const currentId = state.editingNodeId;
+            commitNodeLabel(currentId, input.value);
+            addChildNode(currentId, true);
+          }
+        });
+
+        setTimeout(() => {
+          input.focus();
+          const len = input.value.length;
+          input.setSelectionRange(len, len);
+        }, 0);
+      }
+    }
+
+    function startInlineEdit(id) {
+      state.selectedNodeId = id;
+      state.editingNodeId = id;
+      render();
+    }
+
+    function renderShell() {
+      el.sidebar.classList.toggle("hidden", !state.leftOpen);
+      el.inspector.classList.toggle("hidden", !state.rightOpen);
+      el.mapTitleInput.value = activeMap().title || "";
+      el.searchInput.value = state.search;
+      applyView();
+    }
+
+    function render() {
+      ensureSelectedNodeExists();
+      renderShell();
+      renderDocList();
+      renderScene();
+      renderInspector();
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;")
+        .replace(/\n/g, "<br>");
+    }
+
+    function escapeAttr(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;");
+    }
+
+    function escapeText(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function isInteractiveTarget(target) {
+      return !!target.closest('button, input, textarea, .node, .node-body, .node-input, .mini-btn');
+    }
+
+    el.canvasWrap.addEventListener("contextmenu", e => {
+      if (!e.target.closest('input, textarea')) {
+        e.preventDefault();
+      }
+    });
+
+    let dragTimer = null;
+    let pendingDrag = null;
+
+    el.canvasWrap.addEventListener("mousedown", e => {
+      if (e.button === 0) {
+        const nodeEl = e.target.closest('.node');
+        if (nodeEl && !e.target.closest('input, textarea, button')) {
+          const id = nodeEl.dataset.nodeId;
+          pendingDrag = { id, startX: e.clientX, startY: e.clientY };
+          dragTimer = setTimeout(() => {
+            state.dragData = { id, startX: pendingDrag.startX, startY: pendingDrag.startY, hasMoved: false };
+            pendingDrag = null;
+            const targetEl = el.scene.querySelector(`[data-node-id="${id}"]`);
+            if (targetEl) {
+               targetEl.style.opacity = '0.7';
+               targetEl.style.zIndex = '999';
+               targetEl.style.transform = 'scale(1.02)';
+            }
+          }, 500);
+        }
+      } else if (e.button === 2) {
+        if (isInteractiveTarget(e.target)) return;
+        state.panning = {
+          startX: e.clientX,
+          startY: e.clientY,
+          originX: state.view.x,
+          originY: state.view.y,
+        };
+        el.canvasWrap.classList.add("grabbing");
+      }
+    });
+
+    window.addEventListener("mousemove", e => {
+      if (pendingDrag && !state.dragData) {
+        const dx = e.clientX - pendingDrag.startX;
+        const dy = e.clientY - pendingDrag.startY;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+           clearTimeout(dragTimer);
+           pendingDrag = null;
+        }
+      }
+      if (state.dragData) {
+        if (!state.dragData.hasMoved) {
+          const dx = e.clientX - state.dragData.startX;
+          const dy = e.clientY - state.dragData.startY;
+          if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+             state.dragData.hasMoved = true;
+             render();
+          }
+        }
+        if (state.dragData.hasMoved) {
+           const layout = state.lastLayout;
+           const meta = layout && layout.layoutMap.get(state.dragData.id);
+           if (meta) {
+               const nodeEl = el.scene.querySelector(`[data-node-id="${state.dragData.id}"]`);
+               if (nodeEl) {
+                   const dx = (e.clientX - state.dragData.startX) / state.view.scale;
+                   const dy = (e.clientY - state.dragData.startY) / state.view.scale;
+                   nodeEl.style.transform = `translate(${dx}px, ${dy}px)`;
+               }
+           }
+        }
+        return;
+      }
+
+      if (!state.panning) return;
+      state.view.x = state.panning.originX + (e.clientX - state.panning.startX);
+      state.view.y = state.panning.originY + (e.clientY - state.panning.startY);
+      applyView();
+    });
+
+    window.addEventListener("mouseup", e => {
+      if (pendingDrag) {
+        clearTimeout(dragTimer);
+        pendingDrag = null;
+      }
+      if (state.dragData) {
+        if (state.dragData.hasMoved) {
+           const map = activeMap();
+           const draggedId = state.dragData.id;
+           
+           const nodeEl = el.scene.querySelector(`[data-node-id="${draggedId}"]`);
+           if (nodeEl) nodeEl.style.display = 'none';
+           
+           const dropTargetEl = document.elementFromPoint(e.clientX, e.clientY)?.closest('.node');
+           if (nodeEl) nodeEl.style.display = '';
+
+           const dropTargetId = dropTargetEl ? dropTargetEl.dataset.nodeId : null;
+           
+           if (dropTargetId && dropTargetId !== draggedId) {
+               const descendants = getDescendants(draggedId, map);
+               if (!descendants.has(dropTargetId)) {
+                   map.edges = map.edges.filter(edge => edge.target !== draggedId);
+                   map.edges.push({ id: `e-${dropTargetId}-${draggedId}`, source: dropTargetId, target: draggedId });
+                   
+                   const node = map.nodes.find(n => n.id === draggedId);
+                   delete node.x;
+                   delete node.y;
+                   
+                   commitChanges(true);
+               }
+           } else if (!dropTargetId) {
+               map.edges = map.edges.filter(edge => edge.target !== draggedId);
+               const node = map.nodes.find(n => n.id === draggedId);
+               
+               const rect = el.canvasWrap.getBoundingClientRect();
+               const pointerX = e.clientX - rect.left;
+               const pointerY = e.clientY - rect.top;
+               const worldX = (pointerX - state.view.x) / state.view.scale;
+               const worldY = (pointerY - state.view.y) / state.view.scale;
+               
+               const layout = state.lastLayout;
+               const meta = layout && layout.layoutMap.get(draggedId);
+               if (meta) {
+                  const dx = (e.clientX - state.dragData.startX) / state.view.scale;
+                  const dy = (e.clientY - state.dragData.startY) / state.view.scale;
+                  node.x = meta.x + dx;
+                  node.y = meta.y + dy;
+               } else {
+                  node.x = worldX;
+                  node.y = worldY;
+               }
+               commitChanges(true);
+           }
+        }
+        
+        state.dragData = null;
+        render();
+        return;
+      }
+
+      if (!state.panning) return;
+      state.panning = null;
+      el.canvasWrap.classList.remove("grabbing");
+    });
+
+    el.canvasWrap.addEventListener("wheel", e => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const rect = el.canvasWrap.getBoundingClientRect();
+      const pointerX = e.clientX - rect.left;
+      const pointerY = e.clientY - rect.top;
+      const worldX = (pointerX - state.view.x) / state.view.scale;
+      const worldY = (pointerY - state.view.y) / state.view.scale;
+      const factor = e.deltaY < 0 ? 1.1 : 0.9;
+      const nextScale = Math.min(2.8, Math.max(0.35, state.view.scale * factor));
+      state.view.x = pointerX - worldX * nextScale;
+      state.view.y = pointerY - worldY * nextScale;
+      state.view.scale = nextScale;
+      applyView();
+    }, { passive: false });
+
+    el.canvasWrap.addEventListener("click", e => {
+      if (isInteractiveTarget(e.target)) return;
+      state.selectedNodeId = null;
+      state.editingNodeId = null;
+      render();
+    });
+
+    el.newMapBtn.addEventListener("click", createNewMap);
+    el.resetViewBtn.addEventListener("click", resetView);
+    el.duplicateBtn.addEventListener("click", duplicateMap);
+    el.saveBtn.addEventListener("click", () => { saveWorkspace(); alert("저장되었습니다."); });
+    el.exportBtn.addEventListener("click", exportActiveMap);
+    el.importBtn.addEventListener("click", () => el.fileInput.click());
+    el.deleteMapBtn.addEventListener("click", deleteCurrentMap);
+    el.toggleLeftBtn.addEventListener("click", () => { state.leftOpen = !state.leftOpen; render(); });
+    el.toggleRightBtn.addEventListener("click", () => { state.rightOpen = !state.rightOpen; render(); });
+
+    el.mapTitleInput.addEventListener("input", e => {
+      setNodeField(ROOT_ID, { label: e.target.value || "새 마인드맵" });
+    });
+    el.mapTitleInput.addEventListener("blur", () => commitNodeLabel(ROOT_ID, el.mapTitleInput.value));
+    el.mapTitleInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        el.mapTitleInput.blur();
+      }
+    });
+
+    el.searchInput.addEventListener("input", e => {
+      state.search = e.target.value;
+      renderDocList();
+    });
+
+    el.fileInput.addEventListener("change", e => {
+      const file = e.target.files && e.target.files[0];
+      if (file) importMap(file);
+      e.target.value = "";
+    });
+
+    window.addEventListener("keydown", e => {
+      const tag = document.activeElement && document.activeElement.tagName ? document.activeElement.tagName.toLowerCase() : "";
+      const isTyping = tag === "input" || tag === "textarea";
+      if (isTyping && !(e.ctrlKey || e.metaKey)) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (!isTyping) {
+           if (e.shiftKey) redo();
+           else undo();
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        if (!isTyping) redo();
+      }
+
+      const selectedId = state.selectedNodeId;
+      if (!selectedId) return;
+
+      if (e.key === "Tab") {
+        e.preventDefault();
+        addChildNode(selectedId, true);
+      }
+      if (e.key === "Enter" && selectedId !== ROOT_ID) {
+        e.preventDefault();
+        addSiblingNode(selectedId, true);
+      }
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedId !== ROOT_ID) {
+        e.preventDefault();
+        deleteNode(selectedId);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        saveWorkspace();
+        alert("저장되었습니다.");
+      }
+    });
+
+    el.undoBtn.addEventListener("click", undo);
+    el.redoBtn.addEventListener("click", redo);
+
+    resetHistory();
+    resetView();
+    render();
+  </script>
+</body>
+</html>

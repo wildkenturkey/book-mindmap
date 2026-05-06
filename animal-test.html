@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>동물상 테스트</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      font-family: Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background: linear-gradient(135deg, #fff7e6 0%, #ffe9f1 50%, #e8f1ff 100%);
+      color: #0f172a;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 24px;
+      gap: 24px;
+    }
+    .card {
+      width: 100%;
+      max-width: 520px;
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+      border: 1px solid #ecdcd0;
+      overflow: hidden;
+    }
+    .card-head {
+      padding: 24px 28px 18px;
+      border-bottom: 1px solid #f5f0e8;
+      text-align: center;
+    }
+    .tiny-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #b08968;
+    }
+    .panel-title {
+      margin-top: 6px;
+      font-size: 26px;
+      font-weight: 800;
+    }
+    .panel-desc {
+      margin-top: 6px;
+      font-size: 13px;
+      color: #64748b;
+      line-height: 1.5;
+    }
+    .body {
+      padding: 24px 28px 28px;
+    }
+    .dropzone {
+      position: relative;
+      border: 2px dashed #cad5e4;
+      border-radius: 16px;
+      padding: 28px 18px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s, transform .1s;
+      background: #fbfcff;
+    }
+    .dropzone:hover { border-color: #ff7eb6; background: #fff5fa; }
+    .dropzone.drag { border-color: #ff7eb6; background: #fff0f6; transform: scale(1.01); }
+    .dropzone p { margin: 0; color: #64748b; font-size: 14px; }
+    .dropzone strong { color: #ff5fa2; }
+    .preview-wrap {
+      margin-top: 16px;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #f1f5f9;
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .preview-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .btn {
+      flex: 1;
+      padding: 14px 18px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      border-radius: 14px;
+      border: 1px solid #cad5e4;
+      background: white;
+      color: #334155;
+      cursor: pointer;
+      transition: transform .1s, box-shadow .2s, background .2s, opacity .2s;
+    }
+    .btn:hover:not(:disabled) { background: #f8fbff; }
+    .btn:active:not(:disabled) { transform: translateY(1px); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn.primary {
+      background: linear-gradient(135deg, #ff7eb6, #ff5fa2);
+      color: white;
+      border-color: transparent;
+      box-shadow: 0 8px 20px rgba(255, 95, 162, 0.25);
+    }
+    .btn.primary:hover:not(:disabled) {
+      background: linear-gradient(135deg, #ff6aa9, #ff4593);
+    }
+    .status {
+      margin-top: 14px;
+      padding: 10px 14px;
+      font-size: 13px;
+      border-radius: 10px;
+      text-align: center;
+      display: none;
+    }
+    .status.info {
+      display: block;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+    .status.error {
+      display: block;
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+    .results {
+      margin-top: 22px;
+      padding: 22px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #fff7ed, #fdf2f8);
+      border: 1px solid #fde7c7;
+    }
+    .verdict {
+      margin: 0 0 4px;
+      font-size: 22px;
+      font-weight: 800;
+      text-align: center;
+    }
+    .verdict-emoji { font-size: 44px; display: block; margin-bottom: 8px; }
+    .verdict-sub { text-align: center; color: #6b7280; font-size: 13px; margin: 0 0 18px; }
+    .bar-row { margin-top: 12px; }
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #334155;
+    }
+    .bar-track {
+      width: 100%;
+      height: 12px;
+      background: rgba(255,255,255,0.7);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid rgba(15,23,42,0.06);
+    }
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #ff7eb6, #ff5fa2);
+      width: 0%;
+      transition: width .8s cubic-bezier(.2,.8,.2,1);
+      border-radius: 999px;
+    }
+    .bar-row.dim .bar-fill { background: linear-gradient(90deg, #93c5fd, #60a5fa); }
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 6px;
+    }
+    .footer a { color: #64748b; text-decoration: none; border-bottom: 1px dotted #cbd5e1; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="card-head">
+      <div class="tiny-label">Animal Face Test</div>
+      <div class="panel-title">동물상 테스트 🐶🐱</div>
+      <div class="panel-desc">사진을 올리면 강아지상인지 고양이상인지 알려드려요.</div>
+    </div>
+    <div class="body">
+      <label class="dropzone" id="dropzone" for="fileInput">
+        <input type="file" id="fileInput" accept="image/*" hidden>
+        <p>이미지를 <strong>드래그</strong>하거나 <strong>클릭</strong>해서 업로드하세요.</p>
+      </label>
+
+      <div class="preview-wrap" id="previewWrap" style="display:none;">
+        <img id="preview" alt="업로드한 이미지">
+      </div>
+
+      <div class="actions">
+        <button id="analyzeBtn" class="btn primary" disabled>분석하기</button>
+        <button id="resetBtn" class="btn" type="button">다시</button>
+      </div>
+
+      <div id="status" class="status"></div>
+
+      <div id="results" style="display:none;">
+        <div class="results">
+          <span class="verdict-emoji" id="verdictEmoji">✨</span>
+          <h2 class="verdict" id="verdict"></h2>
+          <p class="verdict-sub" id="verdictSub"></p>
+          <div id="bars"></div>
+        </div>
+      </div>
+
+      <p class="footer">
+        Powered by
+        <a href="https://teachablemachine.withgoogle.com/" target="_blank" rel="noopener">Teachable Machine</a>
+      </p>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+  <script>
+    const MODEL_URL = "https://teachablemachine.withgoogle.com/models/5LcFqnf87/";
+
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const previewWrap = document.getElementById('previewWrap');
+    const preview = document.getElementById('preview');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const statusEl = document.getElementById('status');
+    const resultsEl = document.getElementById('results');
+    const verdictEl = document.getElementById('verdict');
+    const verdictEmojiEl = document.getElementById('verdictEmoji');
+    const verdictSubEl = document.getElementById('verdictSub');
+    const barsEl = document.getElementById('bars');
+
+    let model = null;
+    let modelLoading = null;
+
+    function setStatus(msg, type) {
+      if (!msg) { statusEl.style.display = 'none'; statusEl.className = 'status'; statusEl.textContent = ''; return; }
+      statusEl.className = 'status ' + (type || 'info');
+      statusEl.textContent = msg;
+    }
+
+    async function loadModel() {
+      if (model) return model;
+      if (modelLoading) return modelLoading;
+      setStatus('AI 모델을 불러오는 중...', 'info');
+      modelLoading = (async () => {
+        const m = await tmImage.load(MODEL_URL + 'model.json', MODEL_URL + 'metadata.json');
+        model = m;
+        setStatus('');
+        return m;
+      })();
+      return modelLoading;
+    }
+
+    function pickEmoji(label) {
+      const k = label.toLowerCase();
+      if (k.includes('dog') || k.includes('강아지') || k.includes('개') || k.includes('puppy')) return '🐶';
+      if (k.includes('cat') || k.includes('고양이') || k.includes('냥') || k.includes('kitty')) return '🐱';
+      return '✨';
+    }
+
+    function renderBars(predictions) {
+      barsEl.innerHTML = '';
+      const sorted = [...predictions].sort((a, b) => b.probability - a.probability);
+      sorted.forEach((p, idx) => {
+        const row = document.createElement('div');
+        row.className = 'bar-row' + (idx === 0 ? '' : ' dim');
+        const pct = (p.probability * 100).toFixed(1);
+        row.innerHTML = `
+          <div class="bar-label"><span>${pickEmoji(p.className)} ${escapeHtml(p.className)}</span><span>${pct}%</span></div>
+          <div class="bar-track"><div class="bar-fill"></div></div>
+        `;
+        barsEl.appendChild(row);
+        requestAnimationFrame(() => {
+          row.querySelector('.bar-fill').style.width = pct + '%';
+        });
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function showVerdict(top) {
+      const emoji = pickEmoji(top.className);
+      const pct = (top.probability * 100).toFixed(1);
+      verdictEmojiEl.textContent = emoji;
+      verdictEl.textContent = `당신은 ${top.className}상!`;
+      verdictSubEl.textContent = `${pct}% 확률로 ${top.className} 같아요.`;
+    }
+
+    async function handleFile(file) {
+      if (!file || !file.type.startsWith('image/')) {
+        setStatus('이미지 파일을 올려주세요.', 'error');
+        return;
+      }
+      setStatus('');
+      resultsEl.style.display = 'none';
+
+      const url = URL.createObjectURL(file);
+      preview.onload = () => URL.revokeObjectURL(url);
+      preview.src = url;
+      previewWrap.style.display = 'flex';
+      analyzeBtn.disabled = false;
+    }
+
+    async function analyze() {
+      if (!preview.src) return;
+      analyzeBtn.disabled = true;
+      try {
+        await loadModel();
+        if (!preview.complete || preview.naturalWidth === 0) {
+          await new Promise((res, rej) => {
+            preview.onload = res;
+            preview.onerror = () => rej(new Error('이미지 로드 실패'));
+          });
+        }
+        setStatus('분석 중...', 'info');
+        const predictions = await model.predict(preview);
+        setStatus('');
+        const sorted = [...predictions].sort((a, b) => b.probability - a.probability);
+        showVerdict(sorted[0]);
+        renderBars(predictions);
+        resultsEl.style.display = 'block';
+        resultsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch (err) {
+        console.error(err);
+        setStatus('분석에 실패했어요. 잠시 후 다시 시도해주세요.', 'error');
+      } finally {
+        analyzeBtn.disabled = false;
+      }
+    }
+
+    function reset() {
+      preview.removeAttribute('src');
+      previewWrap.style.display = 'none';
+      resultsEl.style.display = 'none';
+      analyzeBtn.disabled = true;
+      fileInput.value = '';
+      setStatus('');
+    }
+
+    fileInput.addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (f) handleFile(f);
+    });
+
+    ['dragenter', 'dragover'].forEach(ev =>
+      dropzone.addEventListener(ev, (e) => { e.preventDefault(); dropzone.classList.add('drag'); })
+    );
+    ['dragleave', 'drop'].forEach(ev =>
+      dropzone.addEventListener(ev, (e) => { e.preventDefault(); dropzone.classList.remove('drag'); })
+    );
+    dropzone.addEventListener('drop', (e) => {
+      const f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) handleFile(f);
+    });
+
+    analyzeBtn.addEventListener('click', analyze);
+    resetBtn.addEventListener('click', reset);
+
+    loadModel().catch(() => setStatus('모델을 미리 불러오지 못했어요. 분석 시 다시 시도합니다.', 'error'));
+  </script>
+</body>
+</html>
